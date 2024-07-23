@@ -12,8 +12,8 @@
 #include <Wire.h>
 #include <Arduino.h>
 
-#ifndef __MAGNETOMETER_H
-#define __MAGNETOMETER_H
+#ifndef __DENEYAP_EKSEN_H
+#define __DENEYAP_EKSEN_H
 
 //#define MAGNETOMETER_ADRESS
 #define Control_Reg_0 0x1B
@@ -34,11 +34,6 @@ private:
     uint8_t writeRegister(uint8_t address, uint8_t value);
     uint8_t readRegisters(uint8_t address, uint8_t* data, size_t length);
 };
-#endif // End of __Deneyap_Magnetometer__ definition check
-
-
-#ifndef __Deneyap_IvmeOlcerVeDonuOlcer_H__
-#define __Deneyap_IvmeOlcerVeDonuOlcer_H__
 
 //#define LSM6DSM_ADDRESS (0x6B)
 #define WHO_AM_I_REG_VALUE (0x6A)
