@@ -2516,4 +2516,4 @@ typedef enum {
     DEN_LH_OIS_ACTIVE_HIGH = 0x80,
 } DEN_LH_OIS_t;
 
-#endif // End of __Deneyap_6DofIvmeOlcerVeDonuOlcer_H__ definition check
+#endif // End of __DENEYAP_EKSEN_H definition check
