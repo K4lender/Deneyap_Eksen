@@ -12,12 +12,18 @@
 #include <Wire.h>
 #include <Arduino.h>
 
+//#ifndef __MAGNETOMETER_H
 #ifndef __DENEYAP_EKSEN_H
 #define __DENEYAP_EKSEN_H
+//#define __MAGNETOMETER_H
 
 //#define MAGNETOMETER_ADRESS
 #define Control_Reg_0 0x1B
 #define Control_Reg_1 0x1D
+
+#define SAMPLE_SIZE 40
+#define SMOOTHINGFACTOR 0.1
+#define ALPHA 0.98
 
 //MAGNETOMETER FUNCTIONS
 class MAGNETOMETER {
@@ -34,6 +40,11 @@ private:
     uint8_t writeRegister(uint8_t address, uint8_t value);
     uint8_t readRegisters(uint8_t address, uint8_t* data, size_t length);
 };
+//#endif // End of __Deneyap_Magnetometer__ definition check
+
+
+//#ifndef __Deneyap_IvmeOlcerVeDonuOlcer_H__
+//#define __Deneyap_IvmeOlcerVeDonuOlcer_H__
 
 //#define LSM6DSM_ADDRESS (0x6B)
 #define WHO_AM_I_REG_VALUE (0x6A)
@@ -104,6 +115,27 @@ public:
     // Error checking
     uint16_t allOnesCounter;
     uint16_t nonSuccessCounter;
+
+    // Filtered Variables
+    float accelX, accelY, accelZ;
+    float gyroX, gyroY, gyroZ;
+    float pitch, roll, yaw;
+    float accAngleX_raw;
+    float accAngleY_raw;
+
+    float gyroX_offset, gyroY_offset, gyroZ_offset;
+    float accelX_offset, accelY_offset, accelZ_offset;
+    float accAngleX, accAngleY, gyroAngleX, gyroAngleY;
+    float elapsedTime, currentTime, previousTime = 0;
+
+    float pitchValues[SAMPLE_SIZE];
+    float rollValues[SAMPLE_SIZE];
+    float yawValues[SAMPLE_SIZE];
+
+    int currentIndex = 0;
+
+    float pitchSum, rollSum, yawSum;
+
     // Constructor generates default SensorSettings.
     // (over-ride after construction if desired)
     LSM6DSM();
@@ -134,6 +166,13 @@ public:
     // Read all data together (acc, gyro, temp)
     void readAllAxesRawData(int16_t *);
     void readAllAxesFloatData(float *);
+    //Filtered Accel and Gyro Calibration
+    void calibrateRollPitchYaw(void);
+    //Filtered Accel and Gyro Values
+    void readRollPitchYaw(float& pitchAvg, float& rollAvg, float& yawAvg);
+    //Filtered Accel and Gyro Angles
+    void readAngleAccel(float& accelAngleX, float& accelAngelY);
+    void readAngleGyro(float& gyroAngleX, float& gyroAngleY);
     // FIFO stuff
     void fifoBegin(void);
     void fifoClear(void);
@@ -2516,4 +2555,4 @@ typedef enum {
     DEN_LH_OIS_ACTIVE_HIGH = 0x80,
 } DEN_LH_OIS_t;
 
-#endif // End of __DENEYAP_EKSEN_H definition check
+#endif // End of __Deneyap_6DofIvmeOlcerVeDonuOlcer_H__ definition check
