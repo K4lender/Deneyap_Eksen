@@ -3,7 +3,7 @@
 @file         Deneyap_Eksen.cpp
 @mainpage     Deneyap 9 Dof IMU LSM6DSM and Magnetometer Arduino library source file
 @maintainer   Deneyap Kart
-@version      v1.0.0
+@version      v1.1.0
 @date         July 23, 2024
 @brief        Includes functions to control Deneyap 9 Dof IMU
               Arduino library
@@ -678,6 +678,128 @@ void LSM6DSM::readAllAxesFloatData(float *axisData) {
     axisData[3] = (float)rawData[4] * 0.061 * (settings.accelRange >> 1) / 1000;
     axisData[4] = (float)rawData[5] * 0.061 * (settings.accelRange >> 1) / 1000;
     axisData[5] = (float)rawData[6] * 0.061 * (settings.accelRange >> 1) / 1000;
+}
+
+/**
+ * @brief  Calibrate filtered accels and gyros
+ * @param  Array to write data
+ * @retval None
+ */
+void LSM6DSM::calibrateRollPitchYaw() {
+    float ax = 0, ay = 0, az = 0;
+    float gx = 0, gy = 0, gz = 0;
+
+    // 1000 ölçüm alarak ortalama bias değerlerini hesaplama
+    for (int i = 0; i < 500; i++) {
+        ax += readFloatAccelX();
+        ay += readFloatAccelY();
+        az += readFloatAccelZ();
+
+        delay(5);
+    }
+
+    for (int i = 0; i < 500; i++) {
+        gx += readFloatGyroX();
+        gy += readFloatGyroY();
+        gz += readFloatGyroZ();
+
+        delay(5);
+    }
+    // Ortalama hesaplama
+    accelX_offset = ax / 500.0;
+    accelY_offset = ay / 500.0;
+    accelZ_offset = (az / 500.0) - 1.0;  // Z ekseninde yerçekimi düzeltmesi (-1g)
+
+    gyroY_offset = gy / 500.0;
+    gyroZ_offset = gz / 500.0;
+    gyroX_offset = gx / 500.0;
+
+    for (int i = 0; i < SAMPLE_SIZE; i++) {
+        pitchValues[i] = 0;
+        rollValues[i] = 0;
+        yawValues[i] = 0;
+    }
+
+#if defined(ARDUINO_DYDK) || defined(ARDUINO_DYM)
+    pinMode(LEDR, OUTPUT);
+    pinMode(LEDG, OUTPUT);
+    pinMode(LEDB, OUTPUT);
+
+    digitalWrite(LEDR, LOW);
+    digitalWrite(LEDG, HIGH);
+    digitalWrite(LEDB, LOW);
+    delay(400);
+    digitalWrite(LEDG, LOW);
+#else
+    neopixelWrite(RGBLED, 0, 255, 0);
+    delay(400);
+    neopixelWrite(RGBLED, 0, 0, 0);
+#endif
+}
+
+
+/**
+ * @brief  Read all filtered axels (pitch, roll, yaw)
+ * @param  Array to write data
+ * @retval None
+ */
+void LSM6DSM::readRollPitchYaw(float& pitchAvg, float& rollAvg, float& yawAvg) {
+    calibrateRollPitchYaw();
+
+    currentTime = millis();
+    elapsedTime = (currentTime - previousTime) / 1000.0;  // sn
+    previousTime = currentTime;
+
+    readAngleAccel(accAngleX, accAngleY);
+    readAngleGyro(gyroAngleX, gyroAngleY);
+
+    pitch = ALPHA * (pitch + gyroX * elapsedTime) + (1.0 - ALPHA) * accAngleX;
+    roll = ALPHA * (roll + gyroY * elapsedTime) + (1.0 - ALPHA) * accAngleY;
+
+    pitchSum -= pitchValues[currentIndex];
+    rollSum -= rollValues[currentIndex];
+    yawSum -= yawValues[currentIndex];
+
+    pitchValues[currentIndex] = pitch;
+    rollValues[currentIndex] = roll;
+    yawValues[currentIndex] = yaw;
+    pitchSum += pitch;
+    rollSum += roll;
+    yawSum += yaw;
+
+    currentIndex = (currentIndex + 1) % SAMPLE_SIZE;
+
+    pitchAvg = pitchSum / SAMPLE_SIZE;
+    rollAvg = rollSum / SAMPLE_SIZE;
+    yawAvg = yawSum / SAMPLE_SIZE;
+}
+
+
+void LSM6DSM::readAngleAccel(float& accelAngleX, float& accelAngelY) {
+    // İvmeölçer değerleri
+    accelX = readFloatAccelX() - accelX_offset;
+    accelY = readFloatAccelY() - accelY_offset;
+    accelZ = readFloatAccelZ() - accelZ_offset;
+
+    // İvmeölçer ile açı hesaplama
+    accAngleX_raw = atan2(accelY, sqrt(pow(accelX, 2) + pow(accelZ, 2))) * 180 / PI;
+    accAngleY_raw = atan2(-accelX, sqrt(pow(accelY, 2) + pow(accelZ, 2))) * 180 / PI;
+
+    // Düşük geçişli filtre uygulama (accAngleX ve accAngleY)
+    accAngleX = accAngleX * (1 - SMOOTHINGFACTOR) + accAngleX_raw * SMOOTHINGFACTOR;
+    accAngleY = accAngleY * (1 - SMOOTHINGFACTOR) + accAngleY_raw * SMOOTHINGFACTOR;
+}
+
+void LSM6DSM::readAngleGyro(float& gyroAngleX, float& gyroAngleY) {
+    // Jiroskop değerleri
+    gyroX = readFloatGyroX() - gyroX_offset;
+    gyroY = readFloatGyroY() - gyroY_offset;
+    gyroZ = readFloatGyroZ() - gyroZ_offset;
+
+    // Jiroskop ile açıyı güncelleme
+    gyroAngleX += gyroX * elapsedTime;
+    gyroAngleY += gyroY * elapsedTime;
+    yaw += gyroZ * elapsedTime;
 }
 
 /**
